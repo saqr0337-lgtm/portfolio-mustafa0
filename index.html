@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سيستم الصقراوي - البيع والديون</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#0a1a3f; color:#fff; }
+.sidebar { width:220px; background:#162a6d; position:fixed; top:0; left:0; height:100%; padding:20px; box-shadow:2px 0 8px #000; }
+.sidebar h2 { color:#ffd700; text-align:center; margin-bottom:20px; }
+.sidebar button { width:100%; margin:5px 0; padding:10px; border:none; border-radius:6px; cursor:pointer; background:#0a1445; color:#fff; transition:0.3s; }
+.sidebar button:hover { background:#1a2b6d; }
+.content { margin-left:240px; padding:20px; }
+.section { display:none; background:#162a6d; padding:15px; margin-bottom:20px; border-radius:10px; box-shadow:2px 2px 8px #000; }
+.section.active { display:block; }
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+th, td { border:1px solid #fff; padding:8px; text-align:center; }
+th { background:#0a1445; }
+tr:nth-child(even) { background:#1a2b6d; }
+input, button, select { padding:7px; margin:5px 0; border-radius:6px; border:none; }
+input, select { width:150px; }
+button { cursor:pointer; background-color:#ffd700; color:#000; font-weight:bold; transition:0.3s; }
+button:hover { background-color:#e6c200; }
+.card { background:#1a2b6d; padding:10px; margin:10px 0; border-radius:8px; box-shadow:1px 1px 6px #000; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>سيستم الصقراوي</h2>
+  <button onclick="showSection('products')">المنتجات</button>
+  <button onclick="showSection('sale')">البيع</button>
+  <button onclick="showSection('debts')">الديون</button>
+  <button onclick="showSection('dailyProfit')">المكسب اليومي</button>
+  <button onclick="showSection('monthlyProfit')">المكسب الشهري</button>
+  <button onclick="showSection('invoices')">الفواتير المحفوظة</button>
+</div>
+
+<div class="content">
+
+  <div id="products" class="section active">
+    <h3>المنتجات المتاحة</h3>
+    <input type="text" id="productName" placeholder="اسم المنتج">
+    <input type="number" id="productBuyPrice" placeholder="سعر الشراء">
+    <input type="number" id="productSellPrice" placeholder="سعر البيع">
+    <input type="number" id="productQty" placeholder="الكمية">
+    <button onclick="addOrUpdateProduct()">إضافة / تعديل</button>
+    <table id="productsTable">
+      <thead>
+        <tr>
+          <th>المنتج</th>
+          <th>سعر الشراء</th>
+          <th>سعر البيع</th>
+          <th>الكمية</th>
+          <th>المكسب</th>
+          <th>تعديل</th>
+          <th>حذف</th>
+          <th>أضف للفاتورة</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="sale" class="section">
+    <h3>قسم البيع</h3>
+    <p>البائع: أحمد صقر | ٠١٠٥٥٠٨٩٣٧٣ | المكان: أبو سيد أحمد خلف المدرسة الابتدائية</p>
+    <input type="text" id="buyerName" placeholder="اسم المشتري">
+    <input type="text" id="buyerPhone" placeholder="رقم المشتري">
+    <h4>المنتجات للفاتورة الحالية</h4>
+    <table id="currentInvoiceTable">
+      <thead>
+        <tr>
+          <th>المنتج</th>
+          <th>السعر</th>
+          <th>الكمية</th>
+          <th>إجمالي</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <button onclick="saveInvoice()">حفظ الفاتورة</button>
+    <button onclick="printLastInvoice()">طباعة الفاتورة</button>
+  </div>
+
+  <div id="debts" class="section">
+    <h3>الديون</h3>
+    <input type="text" id="debtBuyer" placeholder="اسم المتدين">
+    <input type="number" id="debtAmount" placeholder="المبلغ">
+    <button onclick="addDebt()">إضافة دين</button>
+    <div id="debtsContainer"></div>
+  </div>
+
+  <div id="dailyProfit" class="section">
+    <h3>المكسب اليومي</h3>
+    <p id="dailyProfitValue">0</p>
+  </div>
+
+  <div id="monthlyProfit" class="section">
+    <h3>المكسب الشهري</h3>
+    <p id="monthlyProfitValue">0</p>
+  </div>
+
+  <div id="invoices" class="section">
+    <h3>الفواتير المحفوظة</h3>
+    <div id="invoicesContainer"></div>
+  </div>
+
+</div>
+
+<script>
+function showSection(id){
+  document.querySelectorAll('.content .section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// البيانات
+let products = [];
+let invoices = [];
+let debts = [];
+let editIndex=-1;
+let currentInvoice=[];
+let lastInvoiceIndex=-1;
+
+// المنتجات
+function addOrUpdateProduct(){
+  const name=document.getElementById('productName').value;
+  const buy=parseFloat(document.getElementById('productBuyPrice').value);
+  const sell=parseFloat(document.getElementById('productSellPrice').value);
+  const qty=parseInt(document.getElementById('productQty').value);
+  if(!name||isNaN(buy)||isNaN(sell)||isNaN(qty)){ alert("املأ كل الحقول"); return; }
+  const profit=(sell*qty)-(buy*qty);
+  if(editIndex===-1) products.push({name,buy,sell,qty,profit});
+  else{ products[editIndex]={name,buy,sell,qty,profit}; editIndex=-1; }
+  renderProducts(); clearProductInputs();
+}
+
+function renderProducts(){
+  const tbody=document.querySelector('#productsTable tbody');
+  tbody.innerHTML='';
+  products.forEach((p,i)=>{
+    tbody.innerHTML+=`<tr>
+      <td>${p.name}</td>
+      <td>${p.buy}</td>
+      <td>${p.sell}</td>
+      <td>${p.qty}</td>
+      <td>${p.profit}</td>
+      <td><button onclick="editProduct(${i})">تعديل</button></td>
+      <td><button onclick="deleteProduct(${i})">حذف</button></td>
+      <td><button onclick="addToInvoice(${i})">أضف للفاتورة</button></td>
+    </tr>`;
+  });
+}
+
+function editProduct(i){
+  const p=products[i];
+  document.getElementById('productName').value=p.name;
+  document.getElementById('productBuyPrice').value=p.buy;
+  document.getElementById('productSellPrice').value=p.sell;
+  document.getElementById('productQty').value=p.qty;
+  editIndex=i;
+}
+
+function deleteProduct(i){ products.splice(i,1); renderProducts(); }
+
+function clearProductInputs(){ document.getElementById('productName').value=''; document.getElementById('productBuyPrice').value=''; document.getElementById('productSellPrice').value=''; document.getElementById('productQty').value=''; }
+
+// إضافة منتجات للفاتورة
+function addToInvoice(i){
+  const p=products[i];
+  const existing=currentInvoice.find(x=>x.name===p.name);
+  if(existing){ existing.qty+=1; existing.total=p.sell*existing.qty; }
+  else currentInvoice.push({name:p.name,sell:p.sell,qty:1,total:p.sell});
+  renderCurrentInvoice();
+}
+
+function renderCurrentInvoice(){
+  const tbody=document.querySelector('#currentInvoiceTable tbody');
+  tbody.innerHTML='';
+  currentInvoice.forEach((p,i)=>{
+    tbody.innerHTML+=`<tr>
+      <td>${p.name}</td>
+      <td>${p.sell}</td>
+      <td>${p.qty}</td>
+      <td>${p.total}</td>
+      <td><button onclick="removeFromInvoice(${i})">حذف</button></td>
+    </tr>`;
+  });
+}
+
+function removeFromInvoice(i){ currentInvoice.splice(i,1); renderCurrentInvoice(); }
+
+function saveInvoice(){
+  const buyerName=document.getElementById('buyerName').value;
+  const buyerPhone=document.getElementById('buyerPhone').value;
+  if(!buyerName||!buyerPhone||currentInvoice.length===0){ alert("املأ كل الحقول وأضف منتجات"); return; }
+  let total=0; currentInvoice.forEach(p=>total+=p.total);
+  invoices.push({buyerName,buyerPhone,items:[...currentInvoice],total,date:new Date()});
+  lastInvoiceIndex=invoices.length-1;
+  currentInvoice=[];
+  renderCurrentInvoice(); renderInvoices(); updateProfitReports();
+  alert("تم حفظ الفاتورة");
+}
+
+function printLastInvoice(){
+  if(lastInvoiceIndex===-1){ alert("لا توجد فاتورة"); return; }
+  const inv=invoices[lastInvoiceIndex];
+  let win=window.open('','', 'width=600,height=600');
+  win.document.write('<h1>الصقراوي</h1>');
+  win.document.write(`<p>البائع: أحمد صقر</p><p>الرقم: ٠١٠٥٥٠٨٩٣٧٣</p><p>المكان: أبو سيد أحمد خلف المدرسة الابتدائية</p>`);
+  win.document.write(`<p>اسم المشتري: ${inv.buyerName}</p><p>رقم المشتري: ${inv.buyerPhone}</p>`);
+  win.document.write('<table border="1" style="width:100%;border-collapse:collapse;text-align:center;">');
+  win.document.write('<tr><th>المنتج</th><th>السعر</th><th>الكمية</th><th>إجمالي</th></tr>');
+  inv.items.forEach(p=>win.document.write(`<tr><td>${p.name}</td><td>${p.sell}</td><td>${p.qty}</td><td>${p.total}</td></tr>`));
+  win.document.write(`<tr><td colspan="3">المجموع</td><td>${inv.total}</td></tr>`);
+  win.document.write('</table>'); win.print();
+}
+
+// الديون
+function addDebt(){
+  const buyer=document.getElementById('debtBuyer').value;
+  const amount=parseFloat(document.getElementById('debtAmount').value);
+  if(!buyer||isNaN(amount)){ alert("املأ كل الحقول"); return; }
+  debts.push({buyer,amount,date:new Date()});
+  renderDebts();
+  document.getElementById('debtBuyer').value=''; document.getElementById('debtAmount').value='';
+}
+
+function renderDebts(){
+  const container=document.getElementById('debtsContainer'); container.innerHTML='';
+  debts.forEach((d,i)=>{
+    container.innerHTML+=`<div class="card">
+      <h4>${d.buyer}</h4><p>المبلغ: ${d.amount}</p>
+      <button onclick="deleteDebt(${i})">حذف</button></div>`;
+  });
+}
+
+function deleteDebt(i){ debts.splice(i,1); renderDebts(); }
+
+// المكسب
+function updateProfitReports(){
+  let daily=0,monthly=0;
+  const today=new Date();
+  invoices.forEach(inv=>{
+    const d=new Date(inv.date);
+    if(d.toDateString()===today.toDateString()) daily+=inv.total;
+    if(d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear()) monthly+=inv.total;
+  });
+  document.getElementById('dailyProfitValue').textContent=daily;
+  document.getElementById('monthlyProfitValue').textContent=monthly;
+}
+
+// الفواتير المحفوظة
+function renderInvoices(){
+  const container=document.getElementById('invoicesContainer'); container.innerHTML='';
+  invoices.forEach((inv,i)=>{
+    container.innerHTML+=`<div class="card">
+      <h4>${inv.buyerName} - ${inv.buyerPhone}</h4>
+      <p>إجمالي الفاتورة: ${inv.total}</p>
+      <p>التاريخ: ${new Date(inv.date).toLocaleDateString()}</p>
+      <button onclick="deleteInvoice(${i})">حذف</button>
+    </div>`;
+  });
+}
+
+function deleteInvoice(i){ invoices.splice(i,1); renderInvoices(); updateProfitReports(); }
+
+// التهيئة
+renderProducts(); renderCurrentInvoice(); renderDebts(); renderInvoices(); updateProfitReports();
+</script>
+
+</body>
+</html>
